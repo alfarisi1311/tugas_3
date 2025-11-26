@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Pemesanan Bahan Ajar - Universitas Terbuka</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="container">
+                <div class="header-content">
+                    <div class="logo">
+                        <img src="assets/img/logo_ut.png" alt="Universitas Terbuka" class="logo-ut-small">
+                        <h1>Sistem Pemesanan Bahan Ajar - UT</h1>
+                    </div>
+                    <nav>
+                        <ul>
+                            <li><a href="#" :class="{active: currentTab === 'stok'}" @click.prevent="currentTab = 'stok'">Stok Bahan Ajar</a></li>
+                            <li><a href="#" :class="{active: currentTab === 'tracking'}" @click.prevent="currentTab = 'tracking'">Tracking DO</a></li>
+                            <li><a href="#" :class="{active: currentTab === 'order'}" @click.prevent="currentTab = 'order'">Pemesanan</a></li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="container">
+                <!-- Halaman Stok Bahan Ajar -->
+                <ba-stock-table 
+                    v-if="currentTab === 'stok'"
+                    :stok-data="stokData"
+                    :upbjj-list="upbjjList"
+                    :kategori-list="kategoriList"
+                    @tambah-stok="showAddStockModal = true"
+                    @edit-stok="handleEditStock"
+                    @hapus-stok="handleDeleteStock"
+                ></ba-stock-table>
+
+                <!-- Halaman Tracking DO -->
+                <do-tracking 
+                    v-if="currentTab === 'tracking'"
+                    :tracking-data="trackingData"
+                    :paket-list="paketList"
+                    :upbjj-list="upbjjList"
+                    @tambah-do="showAddDoModal = true"
+                    @lihat-detail="handleViewTracking"
+                ></do-tracking>
+
+                <!-- Halaman Pemesanan -->
+                <order-form 
+                    v-if="currentTab === 'order'"
+                    :paket-list="paketList"
+                    :upbjj-list="upbjjList"
+                    @submit-order="handleSubmitOrder"
+                ></order-form>
+            </div>
+        </main>
+
+        <!-- Modal Components -->
+        <app-modal 
+            v-if="showAddStockModal || showEditStockModal"
+            :title="showEditStockModal ? 'Edit Stok Bahan Ajar' : 'Tambah Stok Bahan Ajar'"
+            @close="closeStockModal"
+            @submit="submitStockForm"
+        >
+            <template v-slot:body>
+                <form id="stock-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stock-kode">Kode Mata Kuliah</label>
+                            <input type="text" id="stock-kode" class="form-control" v-model="stockForm.kode" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stock-judul">Judul Mata Kuliah</label>
+                            <input type="text" id="stock-judul" class="form-control" v-model="stockForm.judul" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stock-kategori">Kategori</label>
+                            <select id="stock-kategori" class="form-control" v-model="stockForm.kategori" required>
+                                <option value="">Pilih Kategori</option>
+                                <option v-for="kategori in kategoriList" :value="kategori">{{ kategori }}</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stock-upbjj">UT-Daerah</label>
+                            <select id="stock-upbjj" class="form-control" v-model="stockForm.upbjj" required>
+                                <option value="">Pilih UT-Daerah</option>
+                                <option v-for="upbjj in upbjjList" :value="upbjj">{{ upbjj }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stock-lokasi">Lokasi Rak</label>
+                            <input type="text" id="stock-lokasi" class="form-control" v-model="stockForm.lokasiRak" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="stock-harga">Harga</label>
+                            <input type="number" id="stock-harga" class="form-control" v-model="stockForm.harga" required min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="stock-qty">Jumlah Stok</label>
+                            <input type="number" id="stock-qty" class="form-control" v-model="stockForm.qty" required min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="stock-safety">Safety Stock</label>
+                            <input type="number" id="stock-safety" class="form-control" v-model="stockForm.safety" required min="0">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="stock-catatan">Catatan (HTML)</label>
+                        <textarea id="stock-catatan" class="form-control" v-model="stockForm.catatanHTML" rows="3"></textarea>
+                    </div>
+                </form>
+            </template>
+        </app-modal>
+
+        <app-modal 
+            v-if="showAddDoModal"
+            title="Tambah Delivery Order Baru"
+            @close="showAddDoModal = false"
+            @submit="submitDoForm"
+        >
+            <template v-slot:body>
+                <form id="do-form">
+                    <div class="form-group">
+                        <label for="do-nomor">Nomor DO</label>
+                        <input type="text" id="do-nomor" class="form-control" v-model="doForm.nomorDO" readonly>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="do-nim">NIM</label>
+                            <input type="text" id="do-nim" class="form-control" v-model="doForm.nim" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="do-nama">Nama</label>
+                            <input type="text" id="do-nama" class="form-control" v-model="doForm.nama" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="do-ekspedisi">Ekspedisi</label>
+                            <select id="do-ekspedisi" class="form-control" v-model="doForm.ekspedisi" required>
+                                <option value="">Pilih Ekspedisi</option>
+                                <option value="JNE Regular">JNE Regular</option>
+                                <option value="JNE Express">JNE Express</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="do-paket">Paket Bahan Ajar</label>
+                            <select id="do-paket" class="form-control" v-model="doForm.paket" required @change="updateDoPaketDetail">
+                                <option value="">Pilih Paket</option>
+                                <option v-for="paket in paketList" :value="paket.kode">{{ paket.kode }} - {{ paket.nama }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" v-if="selectedDoPaket">
+                        <label>Detail Paket:</label>
+                        <div class="card" style="padding: 1rem; background-color: #f8f9fa;">
+                            <p><strong>{{ selectedDoPaket.nama }}</strong></p>
+                            <p>Kode: {{ selectedDoPaket.kode }}</p>
+                            <p>Isi Paket: {{ selectedDoPaket.isi.join(', ') }}</p>
+                            <p><strong>Harga: {{ formatCurrency(selectedDoPaket.harga) }}</strong></p>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="do-tanggal">Tanggal Kirim</label>
+                        <input type="date" id="do-tanggal" class="form-control" v-model="doForm.tanggalKirim" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="do-total">Total Harga</label>
+                        <input type="text" id="do-total" class="form-control" :value="formatCurrency(doForm.totalHarga)" readonly>
+                    </div>
+                </form>
+            </template>
+        </app-modal>
+
+        <app-modal 
+            v-if="showDoTrackingModal"
+            :title="'Detail Tracking DO: ' + selectedDo.nomorDO"
+            @close="showDoTrackingModal = false"
+            size="large"
+        >
+            <template v-slot:body>
+                <div class="card">
+                    <div class="card-header">
+                        <h4>Informasi Pengiriman</h4>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>NIM:</strong> {{ selectedDo.nim }}</p>
+                        <p><strong>Nama:</strong> {{ selectedDo.nama }}</p>
+                        <p><strong>Ekspedisi:</strong> {{ selectedDo.ekspedisi }}</p>
+                        <p><strong>Paket:</strong> {{ selectedDo.paket }}</p>
+                        <p><strong>Tanggal Kirim:</strong> {{ selectedDo.tanggalKirim }}</p>
+                        <p><strong>Total Harga:</strong> {{ formatCurrency(selectedDo.total) }}</p>
+                    </div>
+                </div>
+                
+                <div class="progress-tracker">
+                    <h4>Status Pengiriman</h4>
+                    <div class="progress-step" v-for="(step, index) in selectedDo.perjalanan" :key="index" 
+                         :class="{completed: index <= selectedDo.currentStep}">
+                        <div class="progress-icon">
+                            <i class="fas" :class="getStepIcon(index)"></i>
+                        </div>
+                        <div class="progress-content">
+                            <div class="progress-title">{{ step.keterangan }}</div>
+                            <div class="progress-date">{{ step.waktu }}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group" v-if="selectedDo.currentStep < 3">
+                    <label for="new-status">Tambah Status Baru</label>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <input type="text" id="new-status" class="form-control" v-model="newStatus.keterangan" placeholder="Keterangan status...">
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-primary" @click="addTrackingStatus">Tambah Status</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </app-modal>
+
+        <app-modal 
+            v-if="showDeleteConfirmModal"
+            title="Konfirmasi Hapus"
+            @close="showDeleteConfirmModal = false"
+            @submit="deleteStock"
+        >
+            <template v-slot:body>
+                <p>Apakah Anda yakin ingin menghapus stok bahan ajar <strong>{{ selectedStock.judul }}</strong>?</p>
+            </template>
+            <template v-slot:footer>
+                <button class="btn btn-light" @click="showDeleteConfirmModal = false">Batal</button>
+                <button class="btn btn-danger" @click="deleteStock">Hapus</button>
+            </template>
+        </app-modal>
+
+        <footer>
+            <div class="container">
+                <p>&copy; 2025 Universitas Terbuka - Sistem Pemesanan Bahan Ajar</p>
+                <p>MOH ALFARISI MAULANA | 048415382</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Vue.js -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    
+    <!-- Services -->
+    <script src="js/services/api.js"></script>
+    
+    <!-- Components -->
+    <script src="js/components/stock-table.js"></script>
+    <script src="js/components/do-tracking.js"></script>
+    <script src="js/components/order-form.js"></script>
+    <script src="js/components/status-badge.js"></script>
+    <script src="js/components/app-modal.js"></script>
+    
+    <!-- Main App -->
+    <script src="js/app.js"></script>
+</body>
+</html>
